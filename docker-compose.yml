@@ -1,0 +1,11 @@
+services:
+  glive-panel:
+    build: .
+    container_name: glive-panel
+    restart: unless-stopped
+    networks:
+      - proxy-network
+
+networks:
+  proxy-network:
+    external: true
