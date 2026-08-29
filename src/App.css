@@ -119,6 +119,34 @@ button:disabled {
   font-size: 14px;
 }
 
+.schedule-head,
+.filters {
+  flex-wrap: wrap;
+}
+
+.filters {
+  display: flex;
+  align-items: end;
+  gap: 12px;
+}
+
+.filters label {
+  display: grid;
+  gap: 6px;
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+select {
+  min-width: 150px;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  padding: 8px 10px;
+  color: #e5eefb;
+  background: #020817;
+  font: inherit;
+}
+
 .table-wrap {
   overflow: auto;
 }
@@ -183,9 +211,10 @@ tbody tr:hover {
   color: #94a3b8;
 }
 
-.logs {
+.trace-grid {
   display: grid;
-  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
   padding: 16px;
 }
 
@@ -229,5 +258,9 @@ pre {
   .hero {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .trace-grid {
+    grid-template-columns: 1fr;
   }
 }

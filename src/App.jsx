@@ -1,10 +1,18 @@
 import { useEffect, useMemo, useState } from 'react';
 
-const API_PATH =
-  '/api.php?action=getmatch&apiuser=nobarid&key=&sportstype=FOOTBALL&format=JSON';
+const apiUser = import.meta.env.VITE_GLIVE_APIUSER || '';
+const apiKey = import.meta.env.VITE_GLIVE_KEY || '';
+const sports = (import.meta.env.VITE_GLIVE_SPORTTYPES || 'FOOTBALL')
+  .split(',')
+  .map((sport) => sport.trim().toUpperCase())
+  .filter(Boolean);
+const format = import.meta.env.VITE_GLIVE_FORMAT || 'JSON';
+
+function getApiPath(sport) {
+  return `/api.php?action=getmatch&apiuser=${encodeURIComponent(apiUser)}&key=${encodeURIComponent(apiKey)}&sportstype=${encodeURIComponent(sport)}&format=${encodeURIComponent(format)}`;
+}
 
 function formatLogValue(value) {
-  if (typeof value === 'string') return value;
   try {
     return JSON.stringify(value, null, 2);
   } catch {
@@ -12,88 +20,110 @@ function formatLogValue(value) {
   }
 }
 
+function isLive(item) {
+  return item.IsLive === '1' || item.NowPlaying === 1;
+}
+
 export default function App() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [logs, setLogs] = useState([]);
+  const [trace, setTrace] = useState(null);
   const [lastSync, setLastSync] = useState('');
-
-  const addLog = (type, payload) => {
-    setLogs((prev) => [
-      {
-        id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-        time: new Date().toLocaleString('id-ID'),
-        type,
-        payload,
-      },
-      ...prev,
-    ]);
-  };
+  const [sportFilter, setSportFilter] = useState('ALL');
+  const [liveFilter, setLiveFilter] = useState('ALL');
 
   const sync = async () => {
     setLoading(true);
     setError('');
 
-    const requestTrace = {
+    const requests = sports.map((sport) => ({
+      sport,
       method: 'GET',
-      url: API_PATH,
-      headers: {
-        Accept: '*/*',
-      },
+      url: getApiPath(sport),
+      headers: { Accept: '*/*' },
       body: null,
-      note: 'Browser fetch tidak bisa set header User-Agent manual.',
-    };
+    }));
 
-    addLog('request', requestTrace);
+    setTrace({
+      time: new Date().toLocaleString('id-ID'),
+      request: requests,
+      response: null,
+    });
 
-    try {
-      const response = await fetch(API_PATH, {
-        method: 'GET',
-        headers: {
-          Accept: '*/*',
-        },
-      });
+    const results = await Promise.all(
+      requests.map(async (request) => {
+        try {
+          const response = await fetch(request.url, {
+            method: request.method,
+            headers: request.headers,
+          });
+          const rawBody = await response.text();
+          let data = null;
 
-      const rawBody = await response.clone().text();
+          try {
+            data = JSON.parse(rawBody);
+          } catch {
+            if (response.ok) throw new Error('Response bukan JSON valid');
+          }
 
-      addLog('response', {
-        status: response.status,
-        ok: response.ok,
-        statusText: response.statusText,
-        headers: Object.fromEntries(response.headers.entries()),
-        body: rawBody,
-      });
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status} ${response.statusText}`.trim());
+          }
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status} ${response.statusText}`.trim());
-      }
+          return {
+            sport: request.sport,
+            ok: true,
+            status: response.status,
+            statusText: response.statusText,
+            headers: Object.fromEntries(response.headers.entries()),
+            body: data,
+            matches: Array.isArray(data?.Match)
+              ? data.Match.map((match) => ({ ...match, Type: match.Type || request.sport }))
+              : [],
+          };
+        } catch (err) {
+          return {
+            sport: request.sport,
+            ok: false,
+            error: err instanceof Error ? err.message : 'Gagal mengambil data',
+            matches: [],
+          };
+        }
+      })
+    );
 
-      const data = JSON.parse(rawBody);
-      const matchRows = Array.isArray(data.Match) ? data.Match : [];
+    const failed = results.filter((result) => !result.ok);
+    const matches = results.flatMap((result) => result.matches);
 
-      setRows(matchRows);
-      setLastSync(new Date().toLocaleString('id-ID'));
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Gagal mengambil data';
-      setError(message);
-      setRows([]);
-      addLog('error', {
-        message,
-        stack: err instanceof Error ? err.stack : null,
-      });
-    } finally {
-      setLoading(false);
+    setRows(matches);
+    setLastSync(new Date().toLocaleString('id-ID'));
+    setTrace({
+      time: new Date().toLocaleString('id-ID'),
+      request: requests,
+      response: results.map(({ matches, ...result }) => result),
+    });
+
+    if (failed.length) {
+      setError(`${failed.length} dari ${sports.length} sport gagal diambil: ${failed.map((item) => item.sport).join(', ')}`);
     }
+
+    setLoading(false);
   };
 
   useEffect(() => {
     sync();
   }, []);
 
-  const totalLive = useMemo(
-    () => rows.filter((item) => item.IsLive === '1' || item.NowPlaying === 1).length,
-    [rows]
+  const totalLive = useMemo(() => rows.filter(isLive).length, [rows]);
+  const filteredRows = useMemo(
+    () =>
+      rows.filter(
+        (item) =>
+          (sportFilter === 'ALL' || item.Type === sportFilter) &&
+          (liveFilter === 'ALL' || isLive(item))
+      ),
+    [rows, sportFilter, liveFilter]
   );
 
   return (
@@ -102,81 +132,69 @@ export default function App() {
         <div className="hero">
           <div>
             <h1>Panel Jadwal GLive</h1>
-            <p>Ambil data jadwal football lalu tampilkan tanpa database.</p>
+            <p>Ambil seluruh jadwal sport lalu tampilkan tanpa database.</p>
           </div>
           <button type="button" onClick={sync} disabled={loading}>
-            {loading ? 'Sinkron...' : 'Sync Data'}
+            {loading ? `Sinkron ${sports.length} sport...` : 'Sync Data'}
           </button>
         </div>
 
         <div className="stats">
-          <div className="card">
-            <span>Total Match</span>
-            <strong>{rows.length}</strong>
-          </div>
-          <div className="card">
-            <span>Sedang Live</span>
-            <strong>{totalLive}</strong>
-          </div>
-          <div className="card">
-            <span>Last Sync</span>
-            <strong>{lastSync || '-'}</strong>
-          </div>
+          <div className="card"><span>Total Match</span><strong>{rows.length}</strong></div>
+          <div className="card"><span>Sedang Live</span><strong>{totalLive}</strong></div>
+          <div className="card"><span>Last Sync</span><strong>{lastSync || '-'}</strong></div>
         </div>
 
         {error ? <div className="alert">{error}</div> : null}
 
         <div className="panel">
-          <div className="panel-head">
+          <div className="panel-head schedule-head">
             <h2>Jadwal</h2>
+            <div className="filters">
+              <label>
+                Sport
+                <select value={sportFilter} onChange={(event) => setSportFilter(event.target.value)}>
+                  <option value="ALL">Semua sport</option>
+                  {sports.map((sport) => <option key={sport} value={sport}>{sport}</option>)}
+                </select>
+              </label>
+              <label>
+                Status
+                <select value={liveFilter} onChange={(event) => setLiveFilter(event.target.value)}>
+                  <option value="ALL">Semua status</option>
+                  <option value="LIVE">Live saja</option>
+                </select>
+              </label>
+              <span>{filteredRows.length} match</span>
+            </div>
           </div>
           <div className="table-wrap">
             <table>
               <thead>
                 <tr>
-                  <th>MatchID</th>
-                  <th>Start</th>
-                  <th>Stop</th>
-                  <th>Channel</th>
-                  <th>Match</th>
-                  <th>League</th>
-                  <th>State</th>
-                  <th>Live</th>
-                  <th>Score</th>
+                  <th>MatchID</th><th>Sport</th><th>Start</th><th>Stop</th><th>Channel</th>
+                  <th>Match</th><th>League</th><th>State</th><th>Live</th><th>Score</th>
                 </tr>
               </thead>
               <tbody>
-                {rows.length ? (
-                  rows.map((item) => (
-                    <tr key={item.MatchID}>
-                      <td>{item.MatchID}</td>
-                      <td>{item.TimeStart || '-'}</td>
-                      <td>{item.TimeStop || '-'}</td>
-                      <td>{item.Channel || '-'}</td>
-                      <td>
-                        <div className="match-name">{item.Name || '-'}</div>
-                        <div className="teams">
-                          {item.Home || '-'} vs {item.Away || '-'}
-                        </div>
-                      </td>
-                      <td>{item.League || '-'}</td>
-                      <td>{item.State || '-'}</td>
-                      <td>
-                        <span className={item.IsLive === '1' ? 'badge live' : 'badge'}>
-                          {item.IsLive === '1' ? 'Live' : 'Off'}
-                        </span>
-                      </td>
-                      <td>
-                        {item.HomeScore || '-'} : {item.AwayScore || '-'}
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan="9" className="empty">
-                      {loading ? 'Mengambil data...' : 'Tidak ada data'}
+                {filteredRows.length ? filteredRows.map((item) => (
+                  <tr key={`${item.Type}-${item.MatchID}`}>
+                    <td>{item.MatchID}</td>
+                    <td>{item.Type || '-'}</td>
+                    <td>{item.TimeStart || '-'}</td>
+                    <td>{item.TimeStop || '-'}</td>
+                    <td>{item.Channel || '-'}</td>
+                    <td>
+                      <div className="match-name">{item.Name || '-'}</div>
+                      <div className="teams">{item.Home || '-'} vs {item.Away || '-'}</div>
                     </td>
+                    <td>{item.League || '-'}</td>
+                    <td>{item.State || '-'}</td>
+                    <td><span className={isLive(item) ? 'badge live' : 'badge'}>{isLive(item) ? 'Live' : 'Off'}</span></td>
+                    <td>{item.HomeScore || '-'} : {item.AwayScore || '-'}</td>
                   </tr>
+                )) : (
+                  <tr><td colSpan="10" className="empty">{loading ? 'Mengambil data...' : 'Tidak ada data sesuai filter'}</td></tr>
                 )}
               </tbody>
             </table>
@@ -185,24 +203,21 @@ export default function App() {
 
         <div className="panel">
           <div className="panel-head">
-            <h2>Browser Logs</h2>
-            <span>{logs.length} entri</span>
+            <h2>Request & Response</h2>
+            <span>{trace?.time || 'Belum ada log'}</span>
           </div>
-          <div className="logs">
-            {logs.length ? (
-              logs.map((entry) => (
-                <div key={entry.id} className="log-item">
-                  <div className="log-meta">
-                    <strong>{entry.type.toUpperCase()}</strong>
-                    <span>{entry.time}</span>
-                  </div>
-                  <pre>{formatLogValue(entry.payload)}</pre>
-                </div>
-              ))
-            ) : (
-              <div className="empty-log">Belum ada log</div>
-            )}
-          </div>
+          {trace ? (
+            <div className="trace-grid">
+              <div className="log-item">
+                <div className="log-meta"><strong>REQUEST</strong><span>{trace.request.length} request</span></div>
+                <pre>{formatLogValue(trace.request)}</pre>
+              </div>
+              <div className="log-item">
+                <div className="log-meta"><strong>RESPONSE</strong><span>{trace.response ? `${trace.response.length} response` : 'Menunggu...'}</span></div>
+                <pre>{formatLogValue(trace.response)}</pre>
+              </div>
+            </div>
+          ) : <div className="empty-log">Belum ada log</div>}
         </div>
       </div>
     </div>
