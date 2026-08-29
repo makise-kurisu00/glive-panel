@@ -158,7 +158,7 @@ export default function App() {
 
       const playerUrl = data?.H5LINKROW;
       if (!playerUrl) {
-        throw new Error(data?.Status || 'H5LINKROW tidak ditemukan');
+        throw new Error(formatLogValue(data || rawBody || 'H5LINKROW tidak ditemukan'));
       }
 
       setTrace({
