@@ -211,11 +211,58 @@ tbody tr:hover {
   color: #94a3b8;
 }
 
+.play-button,
+.close-button {
+  padding: 8px 12px;
+  border-radius: 8px;
+}
+
+.close-button {
+  background: #334155;
+  color: #e2e8f0;
+}
+
 .trace-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
   padding: 16px;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(2, 6, 23, 0.85);
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  z-index: 50;
+}
+
+.modal-card {
+  width: min(1100px, 100%);
+  background: #020817;
+  border: 1px solid #1e293b;
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.player-wrap {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+}
+
+.player-wrap iframe {
+  width: 100%;
+  min-height: 70vh;
+  border: 0;
+  border-radius: 12px;
+  background: #000;
+}
+
+.modal-alert {
+  margin-bottom: 0;
 }
 
 .log-item {
@@ -262,5 +309,10 @@ pre {
 
   .trace-grid {
     grid-template-columns: 1fr;
+  }
+
+  .modal-card {
+    max-height: 90vh;
+    overflow: auto;
   }
 }

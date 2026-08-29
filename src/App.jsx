@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 
 const apiUser = import.meta.env.VITE_GLIVE_APIUSER || '';
 const apiKey = import.meta.env.VITE_GLIVE_KEY || '';
+const brand = import.meta.env.VITE_GLIVE_BRAND || apiUser || 'nobarid';
+const lang = import.meta.env.VITE_GLIVE_LANG || 'EN';
 const sports = (import.meta.env.VITE_GLIVE_SPORTTYPES || 'FOOTBALL')
   .split(',')
   .map((sport) => sport.trim().toUpperCase())
@@ -10,6 +12,10 @@ const format = import.meta.env.VITE_GLIVE_FORMAT || 'JSON';
 
 function getApiPath(sport) {
   return `/api.php?action=getmatch&apiuser=${encodeURIComponent(apiUser)}&key=${encodeURIComponent(apiKey)}&sportstype=${encodeURIComponent(sport)}&format=${encodeURIComponent(format)}`;
+}
+
+function getH5LinkPath(matchId, uid) {
+  return `/h5link?apiuser=${encodeURIComponent(apiUser)}&key=${encodeURIComponent(apiKey)}&uid=${encodeURIComponent(uid)}&matchid=${encodeURIComponent(matchId)}&brand=${encodeURIComponent(brand)}&lang=${encodeURIComponent(lang)}`;
 }
 
 function formatLogValue(value) {
@@ -32,6 +38,7 @@ export default function App() {
   const [lastSync, setLastSync] = useState('');
   const [sportFilter, setSportFilter] = useState('ALL');
   const [liveFilter, setLiveFilter] = useState('ALL');
+  const [player, setPlayer] = useState({ open: false, loading: false, url: '', title: '', error: '' });
 
   const sync = async () => {
     setLoading(true);
@@ -111,6 +118,81 @@ export default function App() {
     setLoading(false);
   };
 
+  const playMatch = async (match) => {
+    const uid = crypto.randomUUID();
+    const request = {
+      type: 'player',
+      method: 'GET',
+      sport: match.Type,
+      matchId: match.MatchID,
+      uid,
+      url: getH5LinkPath(match.MatchID, uid),
+      headers: { Accept: '*/*' },
+      body: null,
+    };
+
+    setPlayer({ open: true, loading: true, url: '', title: match.Name || match.MatchID, error: '' });
+    setTrace({
+      time: new Date().toLocaleString('id-ID'),
+      request: [request],
+      response: null,
+    });
+
+    try {
+      const response = await fetch(request.url, {
+        method: request.method,
+        headers: request.headers,
+      });
+      const rawBody = await response.text();
+      let data = null;
+
+      try {
+        data = JSON.parse(rawBody);
+      } catch {
+        if (response.ok) throw new Error('Response player bukan JSON valid');
+      }
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status} ${response.statusText}`.trim());
+      }
+
+      const playerUrl = data?.H5LINKROW;
+      if (!playerUrl) {
+        throw new Error(data?.Status || 'H5LINKROW tidak ditemukan');
+      }
+
+      setTrace({
+        time: new Date().toLocaleString('id-ID'),
+        request: [request],
+        response: [{
+          type: 'player',
+          sport: match.Type,
+          matchId: match.MatchID,
+          ok: true,
+          status: response.status,
+          statusText: response.statusText,
+          headers: Object.fromEntries(response.headers.entries()),
+          body: data,
+        }],
+      });
+      setPlayer({ open: true, loading: false, url: playerUrl, title: match.Name || match.MatchID, error: '' });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Gagal membuat link player';
+      setTrace({
+        time: new Date().toLocaleString('id-ID'),
+        request: [request],
+        response: [{
+          type: 'player',
+          sport: match.Type,
+          matchId: match.MatchID,
+          ok: false,
+          error: message,
+        }],
+      });
+      setPlayer({ open: true, loading: false, url: '', title: match.Name || match.MatchID, error: message });
+    }
+  };
+
   useEffect(() => {
     sync();
   }, []);
@@ -173,7 +255,7 @@ export default function App() {
               <thead>
                 <tr>
                   <th>MatchID</th><th>Sport</th><th>Start</th><th>Stop</th><th>Channel</th>
-                  <th>Match</th><th>League</th><th>State</th><th>Live</th><th>Score</th>
+                  <th>Match</th><th>League</th><th>State</th><th>Live</th><th>Score</th><th>Aksi</th>
                 </tr>
               </thead>
               <tbody>
@@ -192,9 +274,10 @@ export default function App() {
                     <td>{item.State || '-'}</td>
                     <td><span className={isLive(item) ? 'badge live' : 'badge'}>{isLive(item) ? 'Live' : 'Off'}</span></td>
                     <td>{item.HomeScore || '-'} : {item.AwayScore || '-'}</td>
+                    <td><button type="button" className="play-button" onClick={() => playMatch(item)}>Putar</button></td>
                   </tr>
                 )) : (
-                  <tr><td colSpan="10" className="empty">{loading ? 'Mengambil data...' : 'Tidak ada data sesuai filter'}</td></tr>
+                  <tr><td colSpan="11" className="empty">{loading ? 'Mengambil data...' : 'Tidak ada data sesuai filter'}</td></tr>
                 )}
               </tbody>
             </table>
@@ -220,6 +303,30 @@ export default function App() {
           ) : <div className="empty-log">Belum ada log</div>}
         </div>
       </div>
+
+      {player.open ? (
+        <div className="modal-backdrop" onClick={() => setPlayer({ open: false, loading: false, url: '', title: '', error: '' })}>
+          <div className="modal-card" onClick={(event) => event.stopPropagation()}>
+            <div className="panel-head">
+              <h2>{player.title}</h2>
+              <button type="button" className="close-button" onClick={() => setPlayer({ open: false, loading: false, url: '', title: '', error: '' })}>Tutup</button>
+            </div>
+            <div className="player-wrap">
+              {player.loading ? <div className="empty-log">Membuat link player...</div> : null}
+              {player.error ? <div className="alert modal-alert">{player.error}</div> : null}
+              {!player.loading && !player.error && player.url ? (
+                <iframe
+                  title={player.title}
+                  src={player.url}
+                  allow="autoplay; fullscreen"
+                  allowFullScreen
+                  referrerPolicy="no-referrer"
+                />
+              ) : null}
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
