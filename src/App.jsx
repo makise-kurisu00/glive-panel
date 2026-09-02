@@ -38,7 +38,7 @@ export default function App() {
   const [lastSync, setLastSync] = useState('');
   const [sportFilter, setSportFilter] = useState('ALL');
   const [liveFilter, setLiveFilter] = useState('ALL');
-  const [player, setPlayer] = useState({ open: false, loading: false, url: '', title: '', error: '' });
+  const [player, setPlayer] = useState({ open: false, loading: false, url: '', title: '', error: '', showPlayer: false });
   const [copyStatus, setCopyStatus] = useState('');
 
   const sync = async () => {
@@ -129,11 +129,11 @@ export default function App() {
   };
 
   const closePlayer = () => {
-    setPlayer({ open: false, loading: false, url: '', title: '', error: '' });
+    setPlayer({ open: false, loading: false, url: '', title: '', error: '', showPlayer: false });
     setCopyStatus('');
   };
 
-  const playMatch = async (match) => {
+  const playMatch = async (match, showPlayer) => {
     const uid = crypto.randomUUID();
     const request = {
       type: 'player',
@@ -147,7 +147,7 @@ export default function App() {
     };
 
     setCopyStatus('');
-    setPlayer({ open: true, loading: true, url: '', title: match.Name || match.MatchID, error: '' });
+    setPlayer({ open: true, loading: true, url: '', title: match.Name || match.MatchID, error: '', showPlayer });
     setTrace({
       time: new Date().toLocaleString('id-ID'),
       request: [request],
@@ -191,7 +191,7 @@ export default function App() {
           body: data,
         }],
       });
-      setPlayer({ open: true, loading: false, url: playerUrl, title: match.Name || match.MatchID, error: '' });
+      setPlayer({ open: true, loading: false, url: playerUrl, title: match.Name || match.MatchID, error: '', showPlayer });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Gagal membuat link player';
       setTrace({
@@ -205,7 +205,7 @@ export default function App() {
           error: message,
         }],
       });
-      setPlayer({ open: true, loading: false, url: '', title: match.Name || match.MatchID, error: message });
+      setPlayer({ open: true, loading: false, url: '', title: match.Name || match.MatchID, error: message, showPlayer });
     }
   };
 
@@ -292,8 +292,8 @@ export default function App() {
                     <td>{item.HomeScore || '-'} : {item.AwayScore || '-'}</td>
                     <td>
                       <div className="action-group">
-                        <button type="button" className="play-button" onClick={() => playMatch(item)}>Putar</button>
-                        <button type="button" className="link-button" onClick={() => playMatch(item)}>Link H5</button>
+                        <button type="button" className="play-button" onClick={() => playMatch(item, true)}>Putar</button>
+                        <button type="button" className="link-button" onClick={() => playMatch(item, false)}>Link H5</button>
                       </div>
                     </td>
                   </tr>
@@ -343,13 +343,15 @@ export default function App() {
                     <a href={player.url} target="_blank" rel="noreferrer">Buka</a>
                   </div>
                   {copyStatus ? <span className="copy-status">{copyStatus}</span> : null}
-                  <iframe
-                    title={player.title}
-                    src={player.url}
-                    allow="autoplay; fullscreen"
-                    allowFullScreen
-                    referrerPolicy="no-referrer"
-                  />
+                  {player.showPlayer ? (
+                    <iframe
+                      title={player.title}
+                      src={player.url}
+                      allow="autoplay; fullscreen"
+                      allowFullScreen
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : null}
                 </>
               ) : null}
             </div>
