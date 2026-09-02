@@ -39,6 +39,7 @@ export default function App() {
   const [sportFilter, setSportFilter] = useState('ALL');
   const [liveFilter, setLiveFilter] = useState('ALL');
   const [player, setPlayer] = useState({ open: false, loading: false, url: '', title: '', error: '' });
+  const [copyStatus, setCopyStatus] = useState('');
 
   const sync = async () => {
     setLoading(true);
@@ -118,6 +119,20 @@ export default function App() {
     setLoading(false);
   };
 
+  const copyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(player.url);
+      setCopyStatus('Link tersalin');
+    } catch {
+      setCopyStatus('Gagal menyalin link');
+    }
+  };
+
+  const closePlayer = () => {
+    setPlayer({ open: false, loading: false, url: '', title: '', error: '' });
+    setCopyStatus('');
+  };
+
   const playMatch = async (match) => {
     const uid = crypto.randomUUID();
     const request = {
@@ -131,6 +146,7 @@ export default function App() {
       body: null,
     };
 
+    setCopyStatus('');
     setPlayer({ open: true, loading: true, url: '', title: match.Name || match.MatchID, error: '' });
     setTrace({
       time: new Date().toLocaleString('id-ID'),
@@ -274,7 +290,12 @@ export default function App() {
                     <td>{item.State || '-'}</td>
                     <td><span className={isLive(item) ? 'badge live' : 'badge'}>{isLive(item) ? 'Live' : 'Off'}</span></td>
                     <td>{item.HomeScore || '-'} : {item.AwayScore || '-'}</td>
-                    <td><button type="button" className="play-button" onClick={() => playMatch(item)}>Putar</button></td>
+                    <td>
+                      <div className="action-group">
+                        <button type="button" className="play-button" onClick={() => playMatch(item)}>Putar</button>
+                        <button type="button" className="link-button" onClick={() => playMatch(item)}>Link H5</button>
+                      </div>
+                    </td>
                   </tr>
                 )) : (
                   <tr><td colSpan="11" className="empty">{loading ? 'Mengambil data...' : 'Tidak ada data sesuai filter'}</td></tr>
@@ -305,23 +326,31 @@ export default function App() {
       </div>
 
       {player.open ? (
-        <div className="modal-backdrop" onClick={() => setPlayer({ open: false, loading: false, url: '', title: '', error: '' })}>
+        <div className="modal-backdrop" onClick={closePlayer}>
           <div className="modal-card" onClick={(event) => event.stopPropagation()}>
             <div className="panel-head">
               <h2>{player.title}</h2>
-              <button type="button" className="close-button" onClick={() => setPlayer({ open: false, loading: false, url: '', title: '', error: '' })}>Tutup</button>
+              <button type="button" className="close-button" onClick={closePlayer}>Tutup</button>
             </div>
             <div className="player-wrap">
               {player.loading ? <div className="empty-log">Membuat link player...</div> : null}
               {player.error ? <div className="alert modal-alert">{player.error}</div> : null}
               {!player.loading && !player.error && player.url ? (
-                <iframe
-                  title={player.title}
-                  src={player.url}
-                  allow="autoplay; fullscreen"
-                  allowFullScreen
-                  referrerPolicy="no-referrer"
-                />
+                <>
+                  <div className="link-tools">
+                    <input aria-label="Link H5" value={player.url} readOnly />
+                    <button type="button" onClick={copyLink}>Salin</button>
+                    <a href={player.url} target="_blank" rel="noreferrer">Buka</a>
+                  </div>
+                  {copyStatus ? <span className="copy-status">{copyStatus}</span> : null}
+                  <iframe
+                    title={player.title}
+                    src={player.url}
+                    allow="autoplay; fullscreen"
+                    allowFullScreen
+                    referrerPolicy="no-referrer"
+                  />
+                </>
               ) : null}
             </div>
           </div>

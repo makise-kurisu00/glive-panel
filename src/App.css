@@ -212,9 +212,23 @@ tbody tr:hover {
 }
 
 .play-button,
+.link-button,
 .close-button {
   padding: 8px 12px;
   border-radius: 8px;
+}
+
+.action-group,
+.link-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.link-button,
+.close-button {
+  background: #334155;
+  color: #e2e8f0;
 }
 
 .close-button {
@@ -251,6 +265,31 @@ tbody tr:hover {
   display: grid;
   gap: 12px;
   padding: 16px;
+}
+
+.link-tools input {
+  min-width: 0;
+  flex: 1;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  padding: 8px 10px;
+  color: #e5eefb;
+  background: #0b1220;
+  font: inherit;
+}
+
+.link-tools a {
+  border-radius: 8px;
+  padding: 8px 12px;
+  background: #334155;
+  color: #e2e8f0;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.copy-status {
+  color: #86efac;
+  font-size: 14px;
 }
 
 .player-wrap iframe {

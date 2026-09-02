@@ -10,6 +10,11 @@ export default defineConfig({
         changeOrigin: true,
         secure: true,
       },
+      '/h5link': {
+        target: 'https://www.glivestreaming.com',
+        changeOrigin: true,
+        secure: true,
+      },
     },
   },
 });
