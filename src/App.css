@@ -137,13 +137,15 @@ button:disabled {
   font-size: 12px;
 }
 
-select {
+select,
+.filters input {
   min-width: 150px;
   border: 1px solid #334155;
   border-radius: 8px;
   padding: 8px 10px;
   color: #e5eefb;
   background: #020817;
+  color-scheme: dark;
   font: inherit;
 }
 

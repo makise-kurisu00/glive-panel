@@ -30,6 +30,15 @@ function isLive(item) {
   return item.IsLive === '1' || item.NowPlaying === 1;
 }
 
+function isPlayed(item) {
+  return item.IsPlayed === '1' || item.IsPlayed === 1 || item.Played === '1' || item.Played === 1;
+}
+
+function parseLocalDateTime(value) {
+  const timestamp = Date.parse(String(value).replace(' ', 'T'));
+  return Number.isNaN(timestamp) ? null : timestamp;
+}
+
 export default function App() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -38,6 +47,9 @@ export default function App() {
   const [lastSync, setLastSync] = useState('');
   const [sportFilter, setSportFilter] = useState('ALL');
   const [liveFilter, setLiveFilter] = useState('ALL');
+  const [playedFilter, setPlayedFilter] = useState('ALL');
+  const [startFilter, setStartFilter] = useState('');
+  const [endFilter, setEndFilter] = useState('');
   const [player, setPlayer] = useState({ open: false, loading: false, url: '', title: '', error: '', showPlayer: false });
   const [copyStatus, setCopyStatus] = useState('');
 
@@ -219,9 +231,12 @@ export default function App() {
       rows.filter(
         (item) =>
           (sportFilter === 'ALL' || item.Type === sportFilter) &&
-          (liveFilter === 'ALL' || isLive(item))
+          (liveFilter === 'ALL' || isLive(item)) &&
+          (playedFilter === 'ALL' || isPlayed(item)) &&
+          (!startFilter || (parseLocalDateTime(item.TimeStart) ?? -Infinity) >= Date.parse(startFilter)) &&
+          (!endFilter || (parseLocalDateTime(item.TimeStart) ?? Infinity) <= Date.parse(endFilter))
       ),
-    [rows, sportFilter, liveFilter]
+    [rows, sportFilter, liveFilter, playedFilter, startFilter, endFilter]
   );
 
   return (
@@ -262,6 +277,21 @@ export default function App() {
                   <option value="ALL">Semua status</option>
                   <option value="LIVE">Live saja</option>
                 </select>
+              </label>
+              <label>
+                Played
+                <select value={playedFilter} onChange={(event) => setPlayedFilter(event.target.value)}>
+                  <option value="ALL">Semua played</option>
+                  <option value="PLAYED">Played saja</option>
+                </select>
+              </label>
+              <label>
+                Mulai
+                <input type="datetime-local" value={startFilter} onChange={(event) => setStartFilter(event.target.value)} />
+              </label>
+              <label>
+                Sampai
+                <input type="datetime-local" value={endFilter} onChange={(event) => setEndFilter(event.target.value)} />
               </label>
               <span>{filteredRows.length} match</span>
             </div>
