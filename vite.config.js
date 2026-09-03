@@ -9,11 +9,19 @@ export default defineConfig({
         target: 'https://www.glivestreaming.com',
         changeOrigin: true,
         secure: true,
+        headers: {
+          'Cache-Control': 'no-cache',
+          Pragma: 'no-cache',
+        },
       },
       '/h5link': {
         target: 'https://www.glivestreaming.com',
         changeOrigin: true,
         secure: true,
+        headers: {
+          'Cache-Control': 'no-cache',
+          Pragma: 'no-cache',
+        },
       },
     },
   },

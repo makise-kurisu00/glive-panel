@@ -11,11 +11,11 @@ const sports = (import.meta.env.VITE_GLIVE_SPORTTYPES || 'FOOTBALL')
 const format = import.meta.env.VITE_GLIVE_FORMAT || 'JSON';
 
 function getApiPath(sport) {
-  return `/api.php?action=getmatch&apiuser=${encodeURIComponent(apiUser)}&key=${encodeURIComponent(apiKey)}&sportstype=${encodeURIComponent(sport)}&format=${encodeURIComponent(format)}`;
+  return `/api.php?action=getmatch&apiuser=${encodeURIComponent(apiUser)}&key=${encodeURIComponent(apiKey)}&sportstype=${encodeURIComponent(sport)}&format=${encodeURIComponent(format)}&_ts=${Date.now()}`;
 }
 
 function getH5LinkPath(matchId, uid) {
-  return `/h5link?apiuser=${encodeURIComponent(apiUser)}&key=${encodeURIComponent(apiKey)}&uid=${encodeURIComponent(uid)}&matchid=${encodeURIComponent(matchId)}&brand=${encodeURIComponent(brand)}&lang=${encodeURIComponent(lang)}`;
+  return `/h5link?apiuser=${encodeURIComponent(apiUser)}&key=${encodeURIComponent(apiKey)}&uid=${encodeURIComponent(uid)}&matchid=${encodeURIComponent(matchId)}&brand=${encodeURIComponent(brand)}&lang=${encodeURIComponent(lang)}&_ts=${Date.now()}`;
 }
 
 function formatLogValue(value) {
@@ -72,7 +72,12 @@ export default function App() {
         try {
           const response = await fetch(request.url, {
             method: request.method,
-            headers: request.headers,
+            headers: {
+              ...request.headers,
+              'Cache-Control': 'no-cache, no-store, max-age=0',
+              Pragma: 'no-cache',
+            },
+            cache: 'no-store',
           });
           const rawBody = await response.text();
           let data = null;
@@ -173,7 +178,12 @@ export default function App() {
     try {
       const response = await fetch(request.url, {
         method: request.method,
-        headers: request.headers,
+        headers: {
+          ...request.headers,
+          'Cache-Control': 'no-cache, no-store, max-age=0',
+          Pragma: 'no-cache',
+        },
+        cache: 'no-store',
       });
       const rawBody = await response.text();
       let data = null;
@@ -375,7 +385,7 @@ export default function App() {
                   <div className="link-tools">
                     <input aria-label="Link H5" value={player.url} readOnly />
                     <button type="button" onClick={copyLink}>Salin</button>
-                    <a href={player.url} target="_blank" rel="noreferrer">Buka</a>
+                    <a href={player.url} target="_blank" rel="noopener">Buka</a>
                   </div>
                   {copyStatus ? <span className="copy-status">{copyStatus}</span> : null}
                   {player.showPlayer ? <button type="button" className="fullscreen-button" onClick={fullscreenPlayer}>Fullscreen</button> : null}
