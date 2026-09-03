@@ -7,6 +7,7 @@ services:
         VITE_GLIVE_KEY: ${VITE_GLIVE_KEY}
         VITE_GLIVE_SPORTTYPES: ${VITE_GLIVE_SPORTTYPES}
         VITE_GLIVE_FORMAT: ${VITE_GLIVE_FORMAT}
+        VITE_GLIVE_IP: ${VITE_GLIVE_IP}
     container_name: glive-panel
     restart: unless-stopped
     networks:

@@ -11,11 +11,11 @@ const sports = (import.meta.env.VITE_GLIVE_SPORTTYPES || 'FOOTBALL')
 const format = import.meta.env.VITE_GLIVE_FORMAT || 'JSON';
 
 function getApiPath(sport) {
-  return `https://www.glivestreaming.com/api.php?action=getmatch&apiuser=${encodeURIComponent(apiUser)}&key=${encodeURIComponent(apiKey)}&sportstype=${encodeURIComponent(sport)}&format=${encodeURIComponent(format)}&_ts=${Date.now()}`;
+  return `/api.php?action=getmatch&apiuser=${encodeURIComponent(apiUser)}&key=${encodeURIComponent(apiKey)}&sportstype=${encodeURIComponent(sport)}&format=${encodeURIComponent(format)}&_ts=${Date.now()}`;
 }
 
-function getH5LinkPath(matchId, uid, clientIp) {
-  return `https://www.glivestreaming.com/api.php?action=geth5link&apiuser=${encodeURIComponent(apiUser)}&key=${encodeURIComponent(apiKey)}&ip=${encodeURIComponent(clientIp)}&uid=${encodeURIComponent(uid)}&matchid=${encodeURIComponent(matchId)}&brand=${encodeURIComponent(brand)}&lang=${encodeURIComponent(lang)}&_ts=${Date.now()}`;
+function getH5LinkPath(matchId, uid) {
+  return `/h5link?apiuser=${encodeURIComponent(apiUser)}&key=${encodeURIComponent(apiKey)}&uid=${encodeURIComponent(uid)}&matchid=${encodeURIComponent(matchId)}&brand=${encodeURIComponent(brand)}&lang=${encodeURIComponent(lang)}&_ts=${Date.now()}`;
 }
 
 function formatLogValue(value) {
@@ -156,25 +156,13 @@ export default function App() {
     setCopyStatus('');
     setPlayer({ open: true, loading: true, url: '', title: match.Name || match.MatchID, error: '', showPlayer });
 
-    let clientIp;
-    try {
-      const ipResponse = await fetch('https://api.ipify.org?format=json', { cache: 'no-store' });
-      if (!ipResponse.ok) throw new Error('Gagal mengambil IP client');
-      clientIp = (await ipResponse.json()).ip;
-      if (!clientIp) throw new Error('IP client tidak ditemukan');
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Gagal mengambil IP client';
-      setPlayer({ open: true, loading: false, url: '', title: match.Name || match.MatchID, error: message, showPlayer });
-      return;
-    }
-
     const request = {
       type: 'player',
       method: 'GET',
       sport: match.Type,
       matchId: match.MatchID,
       uid,
-      url: getH5LinkPath(match.MatchID, uid, clientIp),
+      url: getH5LinkPath(match.MatchID, uid),
       headers: { Accept: '*/*' },
       body: null,
     };
