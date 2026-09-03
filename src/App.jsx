@@ -386,7 +386,6 @@ export default function App() {
                       src={player.url}
                       allow="autoplay; fullscreen"
                       allowFullScreen
-                      referrerPolicy="no-referrer"
                     />
                   ) : null}
                 </>
