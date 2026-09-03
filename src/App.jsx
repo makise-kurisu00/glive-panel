@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 const apiUser = import.meta.env.VITE_GLIVE_APIUSER || '';
 const apiKey = import.meta.env.VITE_GLIVE_KEY || '';
@@ -30,13 +30,8 @@ function isLive(item) {
   return item.IsLive === '1' || item.NowPlaying === 1;
 }
 
-function isPlayed(item) {
-  return item.IsPlayed === '1' || item.IsPlayed === 1 || item.Played === '1' || item.Played === 1;
-}
-
-function parseLocalDateTime(value) {
-  const timestamp = Date.parse(String(value).replace(' ', 'T'));
-  return Number.isNaN(timestamp) ? null : timestamp;
+function isNowPlaying(item) {
+  return item.NowPlaying === '1' || item.NowPlaying === 1;
 }
 
 export default function App() {
@@ -47,11 +42,12 @@ export default function App() {
   const [lastSync, setLastSync] = useState('');
   const [sportFilter, setSportFilter] = useState('ALL');
   const [liveFilter, setLiveFilter] = useState('ALL');
-  const [playedFilter, setPlayedFilter] = useState('ALL');
+  const [nowPlayingFilter, setNowPlayingFilter] = useState('ALL');
+  const [nameFilter, setNameFilter] = useState('');
   const [startFilter, setStartFilter] = useState('');
-  const [endFilter, setEndFilter] = useState('');
   const [player, setPlayer] = useState({ open: false, loading: false, url: '', title: '', error: '', showPlayer: false });
   const [copyStatus, setCopyStatus] = useState('');
+  const playerFrame = useRef(null);
 
   const sync = async () => {
     setLoading(true);
@@ -145,6 +141,14 @@ export default function App() {
     setCopyStatus('');
   };
 
+  const fullscreenPlayer = async () => {
+    try {
+      await playerFrame.current?.requestFullscreen();
+    } catch {
+      setCopyStatus('Fullscreen tidak tersedia');
+    }
+  };
+
   const playMatch = async (match, showPlayer) => {
     const uid = crypto.randomUUID();
     const request = {
@@ -232,11 +236,11 @@ export default function App() {
         (item) =>
           (sportFilter === 'ALL' || item.Type === sportFilter) &&
           (liveFilter === 'ALL' || isLive(item)) &&
-          (playedFilter === 'ALL' || isPlayed(item)) &&
-          (!startFilter || (parseLocalDateTime(item.TimeStart) ?? -Infinity) >= Date.parse(startFilter)) &&
-          (!endFilter || (parseLocalDateTime(item.TimeStart) ?? Infinity) <= Date.parse(endFilter))
+          (nowPlayingFilter === 'ALL' || (nowPlayingFilter === 'YES' ? isNowPlaying(item) : !isNowPlaying(item))) &&
+          (!nameFilter || String(item.Name || '').toLowerCase().includes(nameFilter.toLowerCase())) &&
+          (!startFilter || String(item.TimeStart || '').slice(0, 10) === startFilter)
       ),
-    [rows, sportFilter, liveFilter, playedFilter, startFilter, endFilter]
+    [rows, sportFilter, liveFilter, nowPlayingFilter, nameFilter, startFilter]
   );
 
   return (
@@ -279,19 +283,20 @@ export default function App() {
                 </select>
               </label>
               <label>
-                Played
-                <select value={playedFilter} onChange={(event) => setPlayedFilter(event.target.value)}>
-                  <option value="ALL">Semua played</option>
-                  <option value="PLAYED">Played saja</option>
+                Now Playing
+                <select value={nowPlayingFilter} onChange={(event) => setNowPlayingFilter(event.target.value)}>
+                  <option value="ALL">Semua</option>
+                  <option value="YES">Sedang diputar</option>
+                  <option value="NO">Tidak diputar</option>
                 </select>
               </label>
               <label>
-                Mulai
-                <input type="datetime-local" value={startFilter} onChange={(event) => setStartFilter(event.target.value)} />
+                Nama match
+                <input type="search" value={nameFilter} onChange={(event) => setNameFilter(event.target.value)} placeholder="Benfica U23" />
               </label>
               <label>
-                Sampai
-                <input type="datetime-local" value={endFilter} onChange={(event) => setEndFilter(event.target.value)} />
+                Tanggal mulai
+                <input type="date" value={startFilter} onChange={(event) => setStartFilter(event.target.value)} />
               </label>
               <span>{filteredRows.length} match</span>
             </div>
@@ -373,8 +378,10 @@ export default function App() {
                     <a href={player.url} target="_blank" rel="noreferrer">Buka</a>
                   </div>
                   {copyStatus ? <span className="copy-status">{copyStatus}</span> : null}
+                  {player.showPlayer ? <button type="button" className="fullscreen-button" onClick={fullscreenPlayer}>Fullscreen</button> : null}
                   {player.showPlayer ? (
                     <iframe
+                      ref={playerFrame}
                       title={player.title}
                       src={player.url}
                       allow="autoplay; fullscreen"

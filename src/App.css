@@ -215,7 +215,8 @@ tbody tr:hover {
 
 .play-button,
 .link-button,
-.close-button {
+.close-button,
+.fullscreen-button {
   padding: 8px 12px;
   border-radius: 8px;
 }
@@ -228,7 +229,8 @@ tbody tr:hover {
 }
 
 .link-button,
-.close-button {
+.close-button,
+.fullscreen-button {
   background: #334155;
   color: #e2e8f0;
 }
