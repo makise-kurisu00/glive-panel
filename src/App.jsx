@@ -331,7 +331,6 @@ export default function App() {
                     <td>
                       <div className="action-group">
                         <button type="button" className="play-button" onClick={() => playMatch(item, true)}>Putar</button>
-                        <button type="button" className="link-button" onClick={() => playMatch(item, false)}>Link H5</button>
                       </div>
                     </td>
                   </tr>
