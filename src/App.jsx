@@ -375,12 +375,6 @@ export default function App() {
               {player.error ? <div className="alert modal-alert">{player.error}</div> : null}
               {!player.loading && !player.error && player.url ? (
                 <>
-                  <div className="link-tools">
-                    <input aria-label="Link H5" value={player.url} readOnly />
-                    <button type="button" onClick={copyLink}>Salin</button>
-                    <a href={player.url} target="_blank" rel="noopener">Buka</a>
-                  </div>
-                  {copyStatus ? <span className="copy-status">{copyStatus}</span> : null}
                   {player.showPlayer ? <button type="button" className="fullscreen-button" onClick={fullscreenPlayer}>Fullscreen</button> : null}
                   {player.showPlayer ? (
                     <iframe
