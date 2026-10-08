@@ -48,8 +48,12 @@ export default function App() {
   const [player, setPlayer] = useState({ open: false, loading: false, url: '', title: '', error: '', showPlayer: false });
   const [copyStatus, setCopyStatus] = useState('');
   const playerFrame = useRef(null);
+  const syncing = useRef(false);
 
   const sync = async () => {
+    if (syncing.current) return;
+
+    syncing.current = true;
     setLoading(true);
     setError('');
 
@@ -125,7 +129,12 @@ export default function App() {
       setError(`${failed.length} dari ${sports.length} sport gagal diambil: ${failed.map((item) => item.sport).join(', ')}`);
     }
 
+    syncing.current = false;
     setLoading(false);
+
+    if (!failed.length) {
+      window.alert(`Sinkronisasi berhasil. ${matches.length} match diperbarui.`);
+    }
   };
 
   const copyLink = async () => {
@@ -230,6 +239,9 @@ export default function App() {
 
   useEffect(() => {
     sync();
+    const interval = setInterval(sync, 5 * 60 * 1000);
+
+    return () => clearInterval(interval);
   }, []);
 
   const totalLive = useMemo(() => rows.filter(isLive).length, [rows]);
