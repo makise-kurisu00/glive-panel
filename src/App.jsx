@@ -131,10 +131,6 @@ export default function App() {
 
     syncing.current = false;
     setLoading(false);
-
-    if (!failed.length) {
-      window.alert(`Sinkronisasi berhasil. ${matches.length} match diperbarui.`);
-    }
   };
 
   const copyLink = async () => {
