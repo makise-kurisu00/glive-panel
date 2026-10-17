@@ -120,7 +120,11 @@ export function createGlive(config, fetcher = fetch, logWriter) {
     if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password) {
       throw new Error('Protokol atau kredensial URL player tidak diizinkan');
     }
-    if (sanitize(url.href) !== url.href) throw new Error('URL player mengandung kredensial server');
+    // GLive includes the API account name in legitimate player paths, but never the API key.
+    const keyForms = config.apiKey ? [config.apiKey, encodeURIComponent(config.apiKey)] : [];
+    if (keyForms.some((key) => url.href.includes(key))) {
+      throw new Error('URL player mengandung kredensial server');
+    }
     return { H5LINKROW: url.href };
   }
 

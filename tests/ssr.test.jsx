@@ -133,11 +133,34 @@ describe('GLive khusus server', () => {
     expect(await glive.player('123', 'abc', '127.0.0.1')).toEqual({ H5LINKROW: 'https://player.example/watch' });
   });
 
+  test('URL player resmi boleh mengandung nama akun API tanpa membuka API key', async () => {
+    const playerUrl = 'https://www.glivestreaming.com/livetv/1/test-user/test-user/123/abc/player-token';
+    const logs = [];
+    const glive = createGlive(config, async () => Response.json({
+      Status: 'OK', H5LINKROW: playerUrl, Debug: 'secret-key',
+    }), (entry) => logs.push(entry));
+    const handler = createHandler({ config, glive });
+    const response = await handler(new Request('http://localhost/api/player?matchid=123&uid=abc'));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ H5LINKROW: playerUrl });
+  });
+
   test('URL player berbahaya ditolak', async () => {
-    for (const url of ['javascript:alert(1)', 'https://player.example/?key=secret-key']) {
+    for (const url of [
+      'javascript:alert(1)', 'https://player.example/?key=secret-key',
+      'https://player.example/secret-key/watch', 'https://user:password@player.example/watch',
+    ]) {
       const glive = createGlive(config, async () => Response.json({ H5LINKROW: url }));
       await expect(glive.player('123', 'abc', '127.0.0.1')).rejects.toThrow();
     }
+  });
+
+  test('URL player dengan API key terenkode ditolak', async () => {
+    const encodedConfig = { ...config, apiKey: 'secret/key?value' };
+    const glive = createGlive(encodedConfig, async () => Response.json({
+      H5LINKROW: `https://player.example/${encodeURIComponent(encodedConfig.apiKey)}`,
+    }), () => {});
+    await expect(glive.player('123', 'abc', '127.0.0.1')).rejects.toThrow('URL player mengandung kredensial server');
   });
 
   test('konfigurasi kosong tidak menghubungi upstream', async () => {
