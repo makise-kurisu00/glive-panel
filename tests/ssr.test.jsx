@@ -1,0 +1,92 @@
+import { describe, expect, test } from 'bun:test';
+import { createHandler } from '../server.jsx';
+import { createGlive, readConfig } from '../src/server/glive.js';
+import { serializeInitialData } from '../src/server/document.jsx';
+
+const config = readConfig({ GLIVE_APIUSER: 'test-user', GLIVE_KEY: 'secret-key', GLIVE_SPORTTYPES: 'FOOTBALL,BASKETBALL' });
+const match = { MatchID: '123', Name: 'SSR Test Match', Type: 'FOOTBALL', IsLive: '1' };
+const fixture = {
+  sports: config.sports, rows: [match], error: '', lastSync: '17/10/2026, 10.00.00',
+  trace: { time: 'test', request: [], response: [] },
+};
+
+describe('SSR HTTP server', () => {
+  const handler = createHandler({ config, glive: {
+    matches: async () => fixture,
+    player: async () => ({ H5LINKROW: 'https://player.example/watch' }),
+  } });
+
+  test('HTML pertama berisi data pertandingan dan bootstrap hydration', async () => {
+    const response = await handler(new Request('http://localhost/'));
+    const html = await response.text();
+    expect(response.headers.get('content-type')).toContain('text/html');
+    expect(html).toContain('<!DOCTYPE html>');
+    expect(html).toContain('<div class="match-name">SSR Test Match</div>');
+    expect(html).toContain('id="initial-data"');
+    expect(html).toContain('/assets/main.js');
+    expect(html).toContain('src="https://gls.liveplugins.com/embed.js"');
+    expect(html).toContain('data-site-id="gls"');
+    expect(html).not.toContain('secret-key');
+  });
+
+  test('endpoint internal mengembalikan data dan menolak input invalid', async () => {
+    expect(await (await handler(new Request('http://localhost/api/matches'))).json()).toEqual(fixture);
+    expect((await handler(new Request('http://localhost/api/player?matchid=123&uid=abc'))).status).toBe(200);
+    expect((await handler(new Request('http://localhost/api/player?matchid=../etc&uid=abc'))).status).toBe(400);
+    expect((await handler(new Request('http://localhost/api.php'))).status).toBe(404);
+    expect((await handler(new Request('http://localhost/', { method: 'POST' }))).status).toBe(405);
+  });
+
+  test('aset Bun tersedia dengan MIME benar', async () => {
+    for (const [name, type] of [['main.js', 'text/javascript'], ['main.css', 'text/css']]) {
+      const response = await handler(new Request(`http://localhost/assets/${name}`));
+      expect(response.status).toBe(200);
+      expect(response.headers.get('content-type')).toContain(type);
+      expect((await response.text()).length).toBeGreaterThan(0);
+    }
+  });
+
+  test('bootstrap JSON aman terhadap penutupan script dan tetap bisa dibaca', () => {
+    const data = { name: '</script><script>alert(1)</script>&\u2028' };
+    const serialized = serializeInitialData(data);
+    expect(serialized).not.toContain('<');
+    expect(JSON.parse(serialized)).toEqual(data);
+  });
+});
+
+describe('GLive khusus server', () => {
+  test('partial failure, redaksi key, dan trace tanpa raw response', async () => {
+    const glive = createGlive(config, async (url) => {
+      expect(url.searchParams.get('key')).toBe('secret-key');
+      if (url.searchParams.get('sportstype') === 'BASKETBALL') return new Response('error', { status: 503 });
+      return Response.json({ Match: [{ ...match, Note: 'secret-key test-user' }], Debug: 'secret-key' });
+    });
+    const data = await glive.matches();
+    expect(data.rows.length).toBe(1);
+    expect(data.error).toContain('BASKETBALL');
+    expect(JSON.stringify(data)).not.toContain('secret-key');
+    expect(JSON.stringify(data)).not.toContain('test-user');
+    expect(data.trace.response[0].matchCount).toBe(1);
+  });
+
+  test('geth5link memakai IP server-side dan hanya mengembalikan URL player', async () => {
+    const glive = createGlive(config, async (url) => {
+      expect(url.searchParams.get('action')).toBe('geth5link');
+      expect(url.searchParams.get('ip')).toBe('127.0.0.1');
+      return Response.json({ H5LINKROW: 'https://player.example/watch', Debug: 'secret-key' });
+    });
+    expect(await glive.player('123', 'abc', '127.0.0.1')).toEqual({ H5LINKROW: 'https://player.example/watch' });
+  });
+
+  test('URL player berbahaya ditolak', async () => {
+    for (const url of ['javascript:alert(1)', 'https://player.example/?key=secret-key']) {
+      const glive = createGlive(config, async () => Response.json({ H5LINKROW: url }));
+      await expect(glive.player('123', 'abc', '127.0.0.1')).rejects.toThrow();
+    }
+  });
+
+  test('konfigurasi kosong tidak menghubungi upstream', async () => {
+    const glive = createGlive(readConfig({}), () => { throw new Error('Tidak boleh dipanggil'); });
+    expect((await glive.matches()).trace.response[0].error).toContain('Konfigurasi');
+  });
+});

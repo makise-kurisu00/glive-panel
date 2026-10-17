@@ -4,16 +4,14 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "bunx vite --host 0.0.0.0",
-    "build": "bunx vite build",
-    "preview": "bunx vite preview --host 0.0.0.0"
+    "dev": "bun run build && bun --watch server.jsx",
+    "build": "bun run build.js",
+    "start": "bun server.jsx",
+    "preview": "bun server.jsx",
+    "test": "bun test"
   },
   "dependencies": {
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1"
-  },
-  "devDependencies": {
-    "@vitejs/plugin-react": "^4.3.1",
-    "vite": "^5.4.10"
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
   }
 }

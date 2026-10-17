@@ -1,21 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-const apiUser = import.meta.env.VITE_GLIVE_APIUSER || '';
-const apiKey = import.meta.env.VITE_GLIVE_KEY || '';
-const brand = import.meta.env.VITE_GLIVE_BRAND || apiUser || 'nobarid';
-const lang = import.meta.env.VITE_GLIVE_LANG || 'EN';
-const sports = (import.meta.env.VITE_GLIVE_SPORTTYPES || 'FOOTBALL')
-  .split(',')
-  .map((sport) => sport.trim().toUpperCase())
-  .filter(Boolean);
-const format = import.meta.env.VITE_GLIVE_FORMAT || 'JSON';
-
-function getApiPath(sport) {
-  return `/api.php?action=getmatch&apiuser=${encodeURIComponent(apiUser)}&key=${encodeURIComponent(apiKey)}&sportstype=${encodeURIComponent(sport)}&format=${encodeURIComponent(format)}&_ts=${Date.now()}`;
-}
-
 function getH5LinkPath(matchId, uid) {
-  return `/h5link?apiuser=${encodeURIComponent(apiUser)}&key=${encodeURIComponent(apiKey)}&uid=${encodeURIComponent(uid)}&matchid=${encodeURIComponent(matchId)}&brand=${encodeURIComponent(brand)}&lang=${encodeURIComponent(lang)}&_ts=${Date.now()}`;
+  return `/api/player?uid=${encodeURIComponent(uid)}&matchid=${encodeURIComponent(matchId)}`;
 }
 
 function formatLogValue(value) {
@@ -34,12 +20,13 @@ function isNowPlaying(item) {
   return item.NowPlaying === '1' || item.NowPlaying === 1;
 }
 
-export default function App() {
-  const [rows, setRows] = useState([]);
+export default function App({ initialData }) {
+  const sports = initialData.sports;
+  const [rows, setRows] = useState(initialData.rows);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [trace, setTrace] = useState(null);
-  const [lastSync, setLastSync] = useState('');
+  const [error, setError] = useState(initialData.error);
+  const [trace, setTrace] = useState(initialData.trace);
+  const [lastSync, setLastSync] = useState(initialData.lastSync);
   const [sportFilter, setSportFilter] = useState('ALL');
   const [liveFilter, setLiveFilter] = useState('ALL');
   const [nowPlayingFilter, setNowPlayingFilter] = useState('ALL');
@@ -57,80 +44,20 @@ export default function App() {
     setLoading(true);
     setError('');
 
-    const requests = sports.map((sport) => ({
-      sport,
-      method: 'GET',
-      url: getApiPath(sport),
-      headers: { Accept: '*/*' },
-      body: null,
-    }));
-
-    setTrace({
-      time: new Date().toLocaleString('id-ID'),
-      request: requests,
-      response: null,
-    });
-
-    const results = await Promise.all(
-      requests.map(async (request) => {
-        try {
-          const response = await fetch(request.url, {
-            method: request.method,
-            headers: request.headers,
-            cache: 'no-store',
-          });
-          const rawBody = await response.text();
-          let data = null;
-
-          try {
-            data = JSON.parse(rawBody);
-          } catch {
-            if (response.ok) throw new Error('Response bukan JSON valid');
-          }
-
-          if (!response.ok) {
-            throw new Error(`HTTP ${response.status} ${response.statusText}`.trim());
-          }
-
-          return {
-            sport: request.sport,
-            ok: true,
-            status: response.status,
-            statusText: response.statusText,
-            headers: Object.fromEntries(response.headers.entries()),
-            body: data,
-            matches: Array.isArray(data?.Match)
-              ? data.Match.map((match) => ({ ...match, Type: match.Type || request.sport }))
-              : [],
-          };
-        } catch (err) {
-          return {
-            sport: request.sport,
-            ok: false,
-            error: err instanceof Error ? err.message : 'Gagal mengambil data',
-            matches: [],
-          };
-        }
-      })
-    );
-
-    const failed = results.filter((result) => !result.ok);
-    const matches = results.flatMap((result) => result.matches);
-
-    setRows(matches);
-    setLastSync(new Date().toLocaleString('id-ID'));
-    setTrace({
-      time: new Date().toLocaleString('id-ID'),
-      request: requests,
-      response: results.map(({ matches, ...result }) => result),
-    });
-
-    if (failed.length) {
-      setError(`${failed.length} dari ${sports.length} sport gagal diambil: ${failed.map((item) => item.sport).join(', ')}`);
+    try {
+      const response = await fetch('/api/matches', { cache: 'no-store' });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data = await response.json();
+      setRows(data.rows);
+      setLastSync(data.lastSync);
+      setTrace(data.trace);
+      setError(data.error);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Gagal mengambil data');
+    } finally {
+      syncing.current = false;
+      setLoading(false);
     }
-
-    syncing.current = false;
-    setLoading(false);
   };
 
   const copyLink = async () => {
@@ -193,7 +120,7 @@ export default function App() {
       }
 
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status} ${response.statusText}`.trim());
+        throw new Error(data?.error || `HTTP ${response.status} ${response.statusText}`.trim());
       }
 
       const playerUrl = data?.H5LINKROW;
@@ -234,7 +161,6 @@ export default function App() {
   };
 
   useEffect(() => {
-    sync();
     const interval = setInterval(sync, 5 * 60 * 1000);
 
     return () => clearInterval(interval);
