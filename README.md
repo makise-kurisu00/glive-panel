@@ -40,7 +40,7 @@ Semua panggilan server ke GLive (`getmatch` per sport dan `geth5link`) menghasil
 - `glive.response`: ID yang sama, status HTTP, durasi dalam milidetik, header diagnostik (`content-type`, `cf-ray`, `x-request-id`), dan body JSON atau teks, termasuk HTML error upstream.
 - `glive.error`: kegagalan konfigurasi, jaringan/pembacaan response, atau parsing JSON, dengan field `stage`.
 
-API key, API user, UID, IP, field sensitif, dan URL dalam body disamarkan. Body yang dicatat dibatasi 8.192 karakter setelah redaksi; `bodyTruncated` menunjukkan pemotongan, `bodyBytes` menunjukkan ukuran body asli dalam byte. Header cookie/authorization tidak dicatat. Response ke browser tetap tidak menyertakan log ini. Batasi akses serta retensi log karena field bisnis lain dari upstream masih dapat tercatat.
+**Peringatan keamanan:** log server tidak memakai redaksi. API key, API user, UID, IP, dan URL/token player dicatat apa adanya. Batasi akses serta retensi log; jangan bagikan log mentah ke publik. Body yang dicatat dibatasi 8.192 karakter; `bodyTruncated` menunjukkan pemotongan, `bodyBytes` menunjukkan ukuran body asli dalam byte. Header cookie/authorization tidak dicatat. Response ke browser tetap memakai pengamanan yang sudah ada dan tidak menyertakan log ini.
 
 Lihat log deployment Docker dengan `docker compose logs -f`. Kegagalan sebelum request mencapai aplikasi (misalnya reverse proxy tidak dapat menghubungi Bun) tidak menghasilkan log GLive; periksa log proxy untuk kasus tersebut.
 

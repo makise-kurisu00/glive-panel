@@ -55,7 +55,7 @@ describe('SSR HTTP server', () => {
 });
 
 describe('GLive khusus server', () => {
-  test('structured log menghubungkan request dan response serta menyamarkan data sensitif', async () => {
+  test('structured log menghubungkan request dan response tanpa redaksi server-side', async () => {
     const logs = [];
     const glive = createGlive(config, async () => Response.json({
       H5LINKROW: 'https://player.example/private-token',
@@ -67,8 +67,13 @@ describe('GLive khusus server', () => {
     expect(logs[0].params.matchid).toBe('123');
     expect(logs[1].status).toBe(200);
     expect(logs[1].durationMs).toBeGreaterThanOrEqual(0);
+    expect(logs[0].params.key).toBe('secret-key');
+    expect(logs[0].params.apiuser).toBe('test-user');
+    expect(logs[0].params.uid).toBe('viewer-123');
+    expect(logs[0].params.ip).toBe('127.0.0.1');
+    expect(logs[1].body.H5LINKROW).toBe('https://player.example/private-token');
     for (const secret of ['secret-key', 'test-user', 'viewer-123', '127.0.0.1', 'private-token']) {
-      expect(JSON.stringify(logs)).not.toContain(secret);
+      expect(JSON.stringify(logs)).toContain(secret);
     }
   });
 
@@ -95,7 +100,7 @@ describe('GLive khusus server', () => {
       await expect(glive.player('123', 'abc', '127.0.0.1')).rejects.toThrow();
       expect(logs.at(-1).event).toBe('glive.error');
       expect(logs.at(-1).stage).toBe(stage);
-      expect(JSON.stringify(logs)).not.toContain('secret-key');
+      expect(logs[0].params.key).toBe('secret-key');
     }
   });
 
