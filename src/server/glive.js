@@ -1,3 +1,5 @@
+import { createGliveLog } from './glive-log.js';
+
 export function readConfig(env = process.env) {
   return {
     apiUser: env.GLIVE_APIUSER || '',
@@ -10,29 +12,59 @@ export function readConfig(env = process.env) {
   };
 }
 
-export function createGlive(config, fetcher = fetch) {
+export function createGlive(config, fetcher = fetch, logWriter) {
   // Never forward upstream URLs, headers, raw errors or bodies to browser logs.
   async function request(action, params) {
-    if (!config.apiUser || !config.apiKey) throw new Error('Konfigurasi GLIVE_APIUSER dan GLIVE_KEY belum lengkap');
+    const log = createGliveLog(config, params, logWriter);
+    const requestId = crypto.randomUUID();
+    const started = performance.now();
+    const common = { requestId, action };
+    if (!config.apiUser || !config.apiKey) {
+      log.emit('glive.error', { ...common, level: 'error', stage: 'config', error: 'Konfigurasi GLIVE_APIUSER dan GLIVE_KEY belum lengkap' });
+      throw new Error('Konfigurasi GLIVE_APIUSER dan GLIVE_KEY belum lengkap');
+    }
     const url = new URL('https://www.glivestreaming.com/api.php');
     url.search = new URLSearchParams({
       action, apiuser: config.apiUser, key: config.apiKey, format: 'JSON',
       ...params, _ts: String(Date.now()),
     }).toString();
+    const headers = { Accept: 'application/json', 'User-Agent': 'yaak', 'Cache-Control': 'no-cache' };
+    log.emit('glive.request', {
+      ...common, level: 'info', method: 'GET', endpoint: `${url.origin}${url.pathname}`,
+      params: log.redact(Object.fromEntries(url.searchParams)), headers, timeoutMs: 15_000,
+    });
     let response;
+    let raw;
     try {
       response = await fetcher(url, {
-        headers: { Accept: 'application/json', 'User-Agent': 'yaak', 'Cache-Control': 'no-cache' },
+        headers,
         signal: AbortSignal.timeout(15_000),
         redirect: 'error',
       });
+      raw = await response.text();
     } catch {
+      log.emit('glive.error', {
+        ...common, level: 'error', stage: response ? 'read' : 'fetch',
+        durationMs: Math.round(performance.now() - started), status: response?.status ?? null,
+        error: 'GLive tidak dapat dihubungi atau melewati batas waktu',
+      });
       throw new Error('GLive tidak dapat dihubungi atau melewati batas waktu');
     }
+    log.emit('glive.response', {
+      ...common, level: response.ok ? 'info' : 'error', status: response.status,
+      durationMs: Math.round(performance.now() - started),
+      headers: log.redact(Object.fromEntries(['content-type', 'cf-ray', 'x-request-id']
+        .map((name) => [name, response.headers.get(name)]).filter(([, value]) => value !== null))),
+      ...log.body(raw),
+    });
     if (!response.ok) throw new Error(`GLive HTTP ${response.status}`);
     try {
-      return await response.json();
+      return JSON.parse(raw);
     } catch {
+      log.emit('glive.error', {
+        ...common, level: 'error', stage: 'parse', status: response.status,
+        durationMs: Math.round(performance.now() - started), error: 'Response GLive bukan JSON valid',
+      });
       throw new Error('Response GLive bukan JSON valid');
     }
   }

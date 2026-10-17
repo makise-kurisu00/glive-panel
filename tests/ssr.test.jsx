@@ -55,6 +55,56 @@ describe('SSR HTTP server', () => {
 });
 
 describe('GLive khusus server', () => {
+  test('structured log menghubungkan request dan response serta menyamarkan data sensitif', async () => {
+    const logs = [];
+    const glive = createGlive(config, async () => Response.json({
+      H5LINKROW: 'https://player.example/private-token',
+      Debug: 'secret-key test-user viewer-123 127.0.0.1',
+    }), (entry) => logs.push(entry));
+    await glive.player('123', 'viewer-123', '127.0.0.1');
+    expect(logs.map((entry) => entry.event)).toEqual(['glive.request', 'glive.response']);
+    expect(logs[0].requestId).toBe(logs[1].requestId);
+    expect(logs[0].params.matchid).toBe('123');
+    expect(logs[1].status).toBe(200);
+    expect(logs[1].durationMs).toBeGreaterThanOrEqual(0);
+    for (const secret of ['secret-key', 'test-user', 'viewer-123', '127.0.0.1', 'private-token']) {
+      expect(JSON.stringify(logs)).not.toContain(secret);
+    }
+  });
+
+  test('structured log merekam HTML 502 dan membatasi body', async () => {
+    const logs = [];
+    const glive = createGlive(config, async () => new Response(`<html>${'x'.repeat(9000)}</html>`, {
+      status: 502, headers: { 'cf-ray': 'test-ray', 'content-type': 'text/html' },
+    }), (entry) => logs.push(entry));
+    await expect(glive.player('123', 'abc', '127.0.0.1')).rejects.toThrow('GLive HTTP 502');
+    expect(logs[1].status).toBe(502);
+    expect(logs[1].headers['cf-ray']).toBe('test-ray');
+    expect(logs[1].bodyFormat).toBe('text');
+    expect(logs[1].bodyTruncated).toBe(true);
+    expect(logs[1].body.length).toBe(8192);
+  });
+
+  test('structured log merekam kegagalan jaringan dan JSON invalid', async () => {
+    for (const [fetcher, stage] of [
+      [async () => { throw new Error('secret-key'); }, 'fetch'],
+      [async () => new Response('not json'), 'parse'],
+    ]) {
+      const logs = [];
+      const glive = createGlive(config, fetcher, (entry) => logs.push(entry));
+      await expect(glive.player('123', 'abc', '127.0.0.1')).rejects.toThrow();
+      expect(logs.at(-1).event).toBe('glive.error');
+      expect(logs.at(-1).stage).toBe(stage);
+      expect(JSON.stringify(logs)).not.toContain('secret-key');
+    }
+  });
+
+  test('kegagalan log writer tidak menggagalkan request', async () => {
+    const glive = createGlive(config, async () => Response.json({ H5LINKROW: 'https://player.example/watch' }),
+      () => { throw new Error('log unavailable'); });
+    expect(await glive.player('123', 'abc', '127.0.0.1')).toEqual({ H5LINKROW: 'https://player.example/watch' });
+  });
+
   test('partial failure, redaksi key, dan trace tanpa raw response', async () => {
     const glive = createGlive(config, async (url) => {
       expect(url.searchParams.get('key')).toBe('secret-key');

@@ -32,6 +32,18 @@ Ganti nama `VITE_GLIVE_*` menjadi `GLIVE_*`. `GLIVE_FORMAT` tidak diperlukan: en
 
 Endpoint: `/` untuk SSR, `/api/matches` untuk refresh, `/api/player?matchid=...&uid=...` untuk player, `/healthz` untuk health check. Trace browser hanya menampilkan ringkasan aman, bukan URL berkredensial atau body mentah upstream.
 
+### Structured log GLive
+
+Semua panggilan server ke GLive (`getmatch` per sport dan `geth5link`) menghasilkan JSON per baris di stdout server, bukan di browser:
+
+- `glive.request`: `requestId`, action, method, endpoint, parameter, header request, dan timeout.
+- `glive.response`: ID yang sama, status HTTP, durasi dalam milidetik, header diagnostik (`content-type`, `cf-ray`, `x-request-id`), dan body JSON atau teks, termasuk HTML error upstream.
+- `glive.error`: kegagalan konfigurasi, jaringan/pembacaan response, atau parsing JSON, dengan field `stage`.
+
+API key, API user, UID, IP, field sensitif, dan URL dalam body disamarkan. Body yang dicatat dibatasi 8.192 karakter setelah redaksi; `bodyTruncated` menunjukkan pemotongan, `bodyBytes` menunjukkan ukuran body asli dalam byte. Header cookie/authorization tidak dicatat. Response ke browser tetap tidak menyertakan log ini. Batasi akses serta retensi log karena field bisnis lain dari upstream masih dapat tercatat.
+
+Lihat log deployment Docker dengan `docker compose logs -f`. Kegagalan sebelum request mencapai aplikasi (misalnya reverse proxy tidak dapat menghubungi Bun) tidak menghasilkan log GLive; periksa log proxy untuk kasus tersebut.
+
 Panel belum memiliki autentikasi. Jangan mengekspos panel atau endpoint player ke internet tanpa kontrol akses dan pembatasan request. Bun melayani HTTP; gunakan terminasi TLS tepercaya jika perlu akses HTTPS.
 
 ## Verifikasi
