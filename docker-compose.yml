@@ -2,9 +2,15 @@ services:
   glive-panel:
     build:
       context: .
+      target: runtime
     env_file:
       - .env
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: "6663"
     ports:
-      - "6663:6663"
+      - "${PANEL_PORT:-6663}:6663"
     container_name: glive-panel
     restart: unless-stopped
+    init: true
