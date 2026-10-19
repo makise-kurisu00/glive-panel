@@ -1,5 +1,5 @@
 services:
-  glive-panel-2:
+  glive-panel:
     build:
       context: .
       target: runtime
