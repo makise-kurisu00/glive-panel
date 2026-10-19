@@ -5,7 +5,7 @@ services:
       target: runtime
     env_file:
       - .env
-    restart: unless-stopped
+    restart: always
     init: true
     networks:
       - proxy-network
