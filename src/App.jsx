@@ -105,22 +105,32 @@ export default function App({ initialData }) {
     });
 
     try {
-      const response = await fetch(request.url, {
-        method: request.method,
-        headers: request.headers,
-        cache: 'no-store',
-      });
-      const rawBody = await response.text();
-      let data = null;
+      let response;
+      let rawBody;
+      let data;
+      // A 5xx without our JSON body comes from Cloudflare/proxy before reaching Bun; retry once.
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        response = await fetch(request.url, {
+          method: request.method,
+          headers: request.headers,
+          cache: 'no-store',
+        });
+        rawBody = await response.text();
+        data = null;
 
-      try {
-        data = JSON.parse(rawBody);
-      } catch {
-        if (response.ok) throw new Error('Response player bukan JSON valid');
+        try {
+          data = JSON.parse(rawBody);
+        } catch {
+          if (response.ok) throw new Error('Response player bukan JSON valid');
+        }
+
+        if (attempt === 2 || data !== null || ![502, 503, 504].includes(response.status)) break;
+        await new Promise((resolve) => setTimeout(resolve, 1000));
       }
 
       if (!response.ok) {
-        throw new Error(data?.error || `HTTP ${response.status} ${response.statusText}`.trim());
+        const status = `HTTP ${response.status} ${response.statusText}`.trim();
+        throw new Error(data?.error || `${status}: gateway gagal menghubungi server panel, coba lagi`);
       }
 
       const playerUrl = data?.H5LINKROW;

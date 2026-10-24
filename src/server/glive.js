@@ -57,7 +57,11 @@ export function createGlive(config, fetcher = fetch, logWriter) {
         .map((name) => [name, response.headers.get(name)]).filter(([, value]) => value !== null)),
       ...log.body(raw),
     });
-    if (!response.ok) throw new Error(`GLive HTTP ${response.status}`);
+    if (!response.ok) {
+      const error = new Error(`GLive HTTP ${response.status}`);
+      error.upstreamStatus = response.status;
+      throw error;
+    }
     try {
       return JSON.parse(raw);
     } catch {
@@ -108,9 +112,16 @@ export function createGlive(config, fetcher = fetch, logWriter) {
   }
 
   async function player(matchId, uid, clientIp) {
-    const data = await request('geth5link', {
-      matchid: matchId, uid, brand: config.brand, lang: config.lang, ip: config.ip || clientIp,
-    });
+    const params = { matchid: matchId, uid, brand: config.brand, lang: config.lang, ip: config.ip || clientIp };
+    let data;
+    try {
+      data = await request('geth5link', params);
+    } catch (error) {
+      // GLive sometimes answers 5xx for a moment; one retry. Timeouts are not retried so the
+      // total wait stays under Bun's 30s idleTimeout.
+      if (!(error.upstreamStatus >= 500)) throw error;
+      data = await request('geth5link', params);
+    }
     let url;
     try {
       url = new URL(data?.H5LINKROW);

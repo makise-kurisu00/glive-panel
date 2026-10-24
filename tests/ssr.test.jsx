@@ -133,6 +133,31 @@ describe('GLive khusus server', () => {
     expect(await glive.player('123', 'abc', '127.0.0.1')).toEqual({ H5LINKROW: 'https://player.example/watch' });
   });
 
+  test('geth5link diulang sekali saat GLive membalas 5xx', async () => {
+    const statuses = [502, 200];
+    let calls = 0;
+    const glive = createGlive(config, async () => {
+      const status = statuses[calls++];
+      return status === 200
+        ? Response.json({ H5LINKROW: 'https://player.example/watch' })
+        : new Response('<html>Bad gateway</html>', { status });
+    }, () => {});
+    expect(await glive.player('123', 'abc', '127.0.0.1')).toEqual({ H5LINKROW: 'https://player.example/watch' });
+    expect(calls).toBe(2);
+  });
+
+  test('geth5link tidak diulang saat GLive membalas 4xx atau gagal dua kali', async () => {
+    let calls = 0;
+    const notFound = createGlive(config, async () => { calls++; return new Response('nope', { status: 404 }); }, () => {});
+    await expect(notFound.player('123', 'abc', '127.0.0.1')).rejects.toThrow('GLive HTTP 404');
+    expect(calls).toBe(1);
+
+    calls = 0;
+    const down = createGlive(config, async () => { calls++; return new Response('down', { status: 503 }); }, () => {});
+    await expect(down.player('123', 'abc', '127.0.0.1')).rejects.toThrow('GLive HTTP 503');
+    expect(calls).toBe(2);
+  });
+
   test('URL player resmi boleh mengandung nama akun API tanpa membuka API key', async () => {
     const playerUrl = 'https://www.glivestreaming.com/livetv/1/test-user/test-user/123/abc/player-token';
     const logs = [];

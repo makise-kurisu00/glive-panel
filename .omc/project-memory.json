@@ -1,0 +1,99 @@
+{
+  "version": "1.0.0",
+  "lastScanned": 1792870286322,
+  "projectRoot": "c:\\Users\\LOQ Essential\\Documents\\Glive Panel\\glive-panel",
+  "techStack": {
+    "languages": [
+      {
+        "name": "JavaScript/TypeScript",
+        "version": null,
+        "confidence": "high",
+        "markers": [
+          "package.json"
+        ]
+      }
+    ],
+    "frameworks": [
+      {
+        "name": "react",
+        "version": "18.3.1",
+        "category": "frontend"
+      },
+      {
+        "name": "react-dom",
+        "version": "18.3.1",
+        "category": "frontend"
+      },
+      {
+        "name": "vite",
+        "version": "5.4.10",
+        "category": "build"
+      }
+    ],
+    "packageManager": "npm",
+    "runtime": null
+  },
+  "build": {
+    "buildCommand": "npm run build",
+    "testCommand": null,
+    "lintCommand": null,
+    "devCommand": "npm run dev",
+    "scripts": {
+      "dev": "bunx vite --host 0.0.0.0",
+      "build": "bunx vite build",
+      "preview": "bunx vite preview --host 0.0.0.0"
+    }
+  },
+  "conventions": {
+    "namingStyle": null,
+    "importStyle": null,
+    "testPattern": null,
+    "fileOrganization": null
+  },
+  "structure": {
+    "isMonorepo": false,
+    "workspaces": [],
+    "mainDirectories": [
+      "src"
+    ],
+    "gitBranches": {
+      "defaultBranch": "master",
+      "branchingStrategy": null
+    }
+  },
+  "customNotes": [],
+  "directoryMap": {
+    "src": {
+      "path": "src",
+      "purpose": "Source code",
+      "fileCount": 3,
+      "lastAccessed": 1792870286048,
+      "keyFiles": [
+        "App.css",
+        "App.jsx",
+        "main.jsx"
+      ]
+    }
+  },
+  "hotPaths": [
+    {
+      "path": "src/server/glive.js",
+      "accessCount": 2,
+      "lastAccessed": 1792871993678,
+      "type": "file"
+    },
+    {
+      "path": "src/App.jsx",
+      "accessCount": 2,
+      "lastAccessed": 1792872029318,
+      "type": "file"
+    },
+    {
+      "path": "tests/ssr.test.jsx",
+      "accessCount": 1,
+      "lastAccessed": 1792871974879,
+      "type": "file"
+    }
+  ],
+  "userDirectives": []
+}
