@@ -4,6 +4,7 @@ export function readConfig(env = process.env) {
   return {
     apiUser: env.GLIVE_APIUSER || '',
     apiKey: env.GLIVE_KEY || '',
+    baseUrl: (env.GLIVE_BASE_URL || 'https://www.glivestreaming.com').replace(/\/+$/, ''),
     sports: [...new Set((env.GLIVE_SPORTTYPES || 'FOOTBALL').split(',').map((sport) => sport.trim().toUpperCase()).filter(Boolean))],
     brand: env.GLIVE_BRAND || env.GLIVE_APIUSER || 'nobarid',
     lang: env.GLIVE_LANG || 'EN',
@@ -23,7 +24,7 @@ export function createGlive(config, fetcher = fetch, logWriter) {
       log.emit('glive.error', { ...common, level: 'error', stage: 'config', error: 'Konfigurasi GLIVE_APIUSER dan GLIVE_KEY belum lengkap' });
       throw new Error('Konfigurasi GLIVE_APIUSER dan GLIVE_KEY belum lengkap');
     }
-    const url = new URL('https://www.glivestreaming.com/api.php');
+    const url = new URL(`${config.baseUrl}/api.php`);
     url.search = new URLSearchParams({
       action, apiuser: config.apiUser, key: config.apiKey, format: 'JSON',
       ...params, _ts: String(Date.now()),
