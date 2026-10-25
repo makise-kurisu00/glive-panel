@@ -32,15 +32,18 @@ Ganti nama `VITE_GLIVE_*` menjadi `GLIVE_*`. `GLIVE_FORMAT` tidak diperlukan: en
 
 Endpoint: `/` untuk SSR, `/api/matches` untuk refresh, `/api/player?matchid=...&uid=...` untuk player, `/healthz` untuk health check. Trace browser hanya menampilkan ringkasan aman, bukan URL berkredensial atau body mentah upstream.
 
-### Structured log GLive
+### Structured log
 
-Semua panggilan server ke GLive (`getmatch` per sport dan `geth5link`) menghasilkan JSON per baris di stdout server, bukan di browser:
+Semua request ke server (kecuali `/healthz`) dan semua panggilan server ke GLive menghasilkan JSON per baris di stdout, di development maupun production. Satu request dari browser mendapat satu `traceId`. ID ini ikut tercatat di semua log GLive yang dipicunya dan dikirim balik ke browser lewat header `X-Trace-Id`, jadi alurnya bisa dilacak dengan `docker compose logs glive-panel | grep <traceId>`.
 
-- `glive.request`: `requestId`, action, method, endpoint, parameter, header request, dan timeout.
+- `http.request`: `traceId`, method, path, query, semua header request browser, dan IP visitor (`ip.client` adalah IP yang dipakai; ada juga `ip.direct`, `ip.forwardedFor`, `ip.realIp`).
+- `glive.request`: `traceId`, `requestId`, action, method, endpoint, parameter, header request, dan timeout.
 - `glive.response`: ID yang sama, status HTTP, durasi dalam milidetik, header diagnostik (`content-type`, `cf-ray`, `x-request-id`), dan body JSON atau teks, termasuk HTML error upstream.
 - `glive.error`: kegagalan konfigurasi, jaringan/pembacaan response, atau parsing JSON, dengan field `stage`.
+- `http.response`: status yang dikirim ke browser, durasi total, header response, dan body untuk response JSON (misalnya pesan error 502).
+- `http.error` / `ssr.error`: exception tak terduga beserta stack trace.
 
-**Peringatan keamanan:** log server tidak memakai redaksi. API key, API user, UID, IP, dan URL/token player dicatat apa adanya. Batasi akses serta retensi log; jangan bagikan log mentah ke publik. Body yang dicatat dibatasi 8.192 karakter; `bodyTruncated` menunjukkan pemotongan, `bodyBytes` menunjukkan ukuran body asli dalam byte. Header cookie/authorization tidak dicatat. Response ke browser tetap memakai pengamanan yang sudah ada dan tidak menyertakan log ini.
+**Peringatan keamanan:** log server tidak memakai redaksi. API key, API user, UID, IP visitor, semua header browser (termasuk cookie/authorization), dan URL/token player dicatat apa adanya. Batasi akses serta retensi log; jangan bagikan log mentah ke publik. Body yang dicatat dibatasi 8.192 karakter; `bodyTruncated` menunjukkan pemotongan, `bodyBytes` menunjukkan ukuran body asli dalam byte. Response ke browser tetap memakai pengamanan yang sudah ada dan tidak menyertakan log ini.
 
 Lihat log deployment Docker dengan `docker compose logs -f`. Kegagalan sebelum request mencapai aplikasi (misalnya reverse proxy tidak dapat menghubungi Bun) tidak menghasilkan log GLive; periksa log proxy untuk kasus tersebut.
 
