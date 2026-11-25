@@ -95,8 +95,8 @@
   "hotPaths": [
     {
       "path": "src/App.jsx",
-      "accessCount": 6,
-      "lastAccessed": 1795610610890,
+      "accessCount": 7,
+      "lastAccessed": 1795612043472,
       "type": "file"
     },
     {
@@ -110,6 +110,12 @@
       "accessCount": 1,
       "lastAccessed": 1792871974879,
       "type": "file"
+    },
+    {
+      "path": "",
+      "accessCount": 1,
+      "lastAccessed": 1795612032134,
+      "type": "directory"
     }
   ],
   "userDirectives": []

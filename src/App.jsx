@@ -328,7 +328,6 @@ export default function App({ initialData }) {
                       title={player.title}
                       src={player.url}
                       allow="autoplay; fullscreen"
-                      allowFullScreen
                     />
                   ) : null}
                 </>
