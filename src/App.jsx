@@ -76,7 +76,10 @@ export default function App({ initialData }) {
 
   const fullscreenPlayer = async () => {
     try {
-      await playerFrame.current?.requestFullscreen();
+      // Stale fullscreen state keeps the iframe in the top layer (missing from the modal) and blocks a new request.
+      if (document.fullscreenElement) await document.exitFullscreen();
+      if (!playerFrame.current) throw new Error('iframe belum siap');
+      await playerFrame.current.requestFullscreen();
     } catch {
       setCopyStatus('Fullscreen tidak tersedia');
     }

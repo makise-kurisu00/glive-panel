@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "lastScanned": 1792870286322,
+  "lastScanned": 1795610501475,
   "projectRoot": "c:\\Users\\LOQ Essential\\Documents\\Glive Panel\\glive-panel",
   "techStack": {
     "languages": [
@@ -16,18 +16,13 @@
     "frameworks": [
       {
         "name": "react",
-        "version": "18.3.1",
+        "version": "19.2.0",
         "category": "frontend"
       },
       {
         "name": "react-dom",
-        "version": "18.3.1",
+        "version": "19.2.0",
         "category": "frontend"
-      },
-      {
-        "name": "vite",
-        "version": "5.4.10",
-        "category": "build"
       }
     ],
     "packageManager": "npm",
@@ -35,13 +30,15 @@
   },
   "build": {
     "buildCommand": "npm run build",
-    "testCommand": null,
+    "testCommand": "npm test",
     "lintCommand": null,
     "devCommand": "npm run dev",
     "scripts": {
-      "dev": "bunx vite --host 0.0.0.0",
-      "build": "bunx vite build",
-      "preview": "bunx vite preview --host 0.0.0.0"
+      "dev": "bun run build && bun --watch server.jsx",
+      "build": "bun run build.js",
+      "start": "bun server.jsx",
+      "preview": "bun server.jsx",
+      "test": "bun test"
     }
   },
   "conventions": {
@@ -54,7 +51,8 @@
     "isMonorepo": false,
     "workspaces": [],
     "mainDirectories": [
-      "src"
+      "src",
+      "tests"
     ],
     "gitBranches": {
       "defaultBranch": "master",
@@ -63,29 +61,48 @@
   },
   "customNotes": [],
   "directoryMap": {
+    "dist": {
+      "path": "dist",
+      "purpose": "Distribution/build output",
+      "fileCount": 2,
+      "lastAccessed": 1795610501188,
+      "keyFiles": [
+        "main.css",
+        "main.js"
+      ]
+    },
     "src": {
       "path": "src",
       "purpose": "Source code",
       "fileCount": 3,
-      "lastAccessed": 1792870286048,
+      "lastAccessed": 1795610501191,
       "keyFiles": [
         "App.css",
         "App.jsx",
         "main.jsx"
       ]
+    },
+    "tests": {
+      "path": "tests",
+      "purpose": "Test files",
+      "fileCount": 1,
+      "lastAccessed": 1795610501238,
+      "keyFiles": [
+        "ssr.test.jsx"
+      ]
     }
   },
   "hotPaths": [
     {
-      "path": "src/server/glive.js",
-      "accessCount": 2,
-      "lastAccessed": 1792871993678,
+      "path": "src/App.jsx",
+      "accessCount": 6,
+      "lastAccessed": 1795610610890,
       "type": "file"
     },
     {
-      "path": "src/App.jsx",
+      "path": "src/server/glive.js",
       "accessCount": 2,
-      "lastAccessed": 1792872029318,
+      "lastAccessed": 1792871993678,
       "type": "file"
     },
     {
