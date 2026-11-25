@@ -10,6 +10,8 @@ export function createHandler({ config = readConfig(), logWriter, glive = create
     ['/assets/main.js', Bun.file(new URL('./dist/main.js', import.meta.url))],
     ['/assets/main.css', Bun.file(new URL('./dist/main.css', import.meta.url))],
   ]);
+  // Cloudflare overrides our no-store on /assets with a browser TTL; a per-start version busts stale bundles after deploy.
+  const assetVersion = Date.now().toString(36);
   const headers = { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer' };
   const json = (body, status = 200) => Response.json(body, { status, headers });
 
@@ -81,7 +83,7 @@ export function createHandler({ config = readConfig(), logWriter, glive = create
       }
       if (url.pathname !== '/') return new Response('Not Found', { status: 404, headers });
       const data = await glive.matches(traceId);
-      const stream = await renderToReadableStream(<Document data={data} />, {
+      const stream = await renderToReadableStream(<Document data={data} assetVersion={assetVersion} />, {
         signal: request.signal,
         onError(error) { log.emit('ssr.error', { traceId, level: 'error', error: error.message, stack: error.stack }); },
       });
