@@ -4,6 +4,7 @@ export function readConfig(env = process.env) {
   return {
     apiUser: env.GLIVE_APIUSER || '',
     apiKey: env.GLIVE_KEY || '',
+    baseUrl: (env.GLIVE_BASE_URL || 'https://www.glivestreaming.com').replace(/\/+$/, ''),
     sports: [...new Set((env.GLIVE_SPORTTYPES || 'FOOTBALL').split(',').map((sport) => sport.trim().toUpperCase()).filter(Boolean))],
     brand: env.GLIVE_BRAND || env.GLIVE_APIUSER || 'nobarid',
     lang: env.GLIVE_LANG || 'EN',
@@ -14,16 +15,16 @@ export function readConfig(env = process.env) {
 
 export function createGlive(config, fetcher = fetch, logWriter) {
   // Raw upstream logs stay server-side; never forward them to browser logs.
-  async function request(action, params) {
+  async function request(action, params, traceId) {
     const log = createGliveLog(logWriter);
     const requestId = crypto.randomUUID();
     const started = performance.now();
-    const common = { requestId, action };
+    const common = { traceId, requestId, action };
     if (!config.apiUser || !config.apiKey) {
       log.emit('glive.error', { ...common, level: 'error', stage: 'config', error: 'Konfigurasi GLIVE_APIUSER dan GLIVE_KEY belum lengkap' });
       throw new Error('Konfigurasi GLIVE_APIUSER dan GLIVE_KEY belum lengkap');
     }
-    const url = new URL('https://www.glivestreaming.com/api.php');
+    const url = new URL(`${config.baseUrl}/api.php`);
     url.search = new URLSearchParams({
       action, apiuser: config.apiUser, key: config.apiKey, format: 'JSON',
       ...params, _ts: String(Date.now()),
@@ -42,11 +43,12 @@ export function createGlive(config, fetcher = fetch, logWriter) {
         redirect: 'error',
       });
       raw = await response.text();
-    } catch {
+    } catch (cause) {
       log.emit('glive.error', {
         ...common, level: 'error', stage: response ? 'read' : 'fetch',
         durationMs: Math.round(performance.now() - started), status: response?.status ?? null,
         error: 'GLive tidak dapat dihubungi atau melewati batas waktu',
+        cause: { name: cause?.name, code: cause?.code, message: cause?.message },
       });
       throw new Error('GLive tidak dapat dihubungi atau melewati batas waktu');
     }
@@ -84,10 +86,10 @@ export function createGlive(config, fetcher = fetch, logWriter) {
     return JSON.parse(text);
   }
 
-  async function matches() {
+  async function matches(traceId) {
     const results = await Promise.all(config.sports.map(async (sport) => {
       try {
-        const data = await request('getmatch', { sportstype: sport });
+        const data = await request('getmatch', { sportstype: sport }, traceId);
         if (!Array.isArray(data?.Match)) throw new Error('Response GLive tidak memiliki daftar Match');
         const rows = data.Match.filter((match) => match && typeof match === 'object' && !Array.isArray(match))
           .map((match) => ({ ...match, Type: match.Type || sport }));
@@ -111,16 +113,16 @@ export function createGlive(config, fetcher = fetch, logWriter) {
     };
   }
 
-  async function player(matchId, uid, clientIp) {
+  async function player(matchId, uid, clientIp, traceId) {
     const params = { matchid: matchId, uid, brand: config.brand, lang: config.lang, ip: config.ip || clientIp };
     let data;
     try {
-      data = await request('geth5link', params);
+      data = await request('geth5link', params, traceId);
     } catch (error) {
       // GLive sometimes answers 5xx for a moment; one retry. Timeouts are not retried so the
       // total wait stays under Bun's 30s idleTimeout.
       if (!(error.upstreamStatus >= 500)) throw error;
-      data = await request('geth5link', params);
+      data = await request('geth5link', params, traceId);
     }
     let url;
     try {

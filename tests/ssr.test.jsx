@@ -11,7 +11,7 @@ const fixture = {
 };
 
 describe('SSR HTTP server', () => {
-  const handler = createHandler({ config, glive: {
+  const handler = createHandler({ config, logWriter: () => {}, glive: {
     matches: async () => fixture,
     player: async () => ({ H5LINKROW: 'https://player.example/watch' }),
   } });
@@ -191,5 +191,43 @@ describe('GLive khusus server', () => {
   test('konfigurasi kosong tidak menghubungi upstream', async () => {
     const glive = createGlive(readConfig({}), () => { throw new Error('Tidak boleh dipanggil'); });
     expect((await glive.matches()).trace.response[0].error).toContain('Konfigurasi');
+  });
+});
+
+describe('structured log HTTP', () => {
+  test('request FE, IP visitor, panggilan GLive, dan response terhubung lewat traceId', async () => {
+    const logs = [];
+    const logWriter = (entry) => logs.push(entry);
+    const handler = createHandler({ config, logWriter, glive: createGlive(config, async () => new Response('bad gateway', { status: 502 }), logWriter) });
+    const server = { requestIP: () => ({ address: '10.0.0.5' }) };
+    const response = await handler(new Request('http://localhost/api/player?matchid=123&uid=abc', {
+      headers: { 'User-Agent': 'test-browser', 'X-Forwarded-For': '203.0.113.9, 10.0.0.1', Cookie: 'session=abc' },
+    }), server);
+    const traceId = response.headers.get('x-trace-id');
+    expect(response.status).toBe(502);
+    expect(logs.map((entry) => entry.event)).toEqual(['http.request', 'glive.request', 'glive.response', 'glive.request', 'glive.response', 'http.response']);
+    expect(logs.every((entry) => entry.traceId === traceId)).toBe(true);
+    expect(logs[0].query).toEqual({ matchid: '123', uid: 'abc' });
+    expect(logs[0].headers['user-agent']).toBe('test-browser');
+    expect(logs[0].headers.cookie).toBe('session=abc');
+    expect(logs[0].ip).toEqual({ client: '10.0.0.5', direct: '10.0.0.5', forwardedFor: '203.0.113.9, 10.0.0.1', realIp: '' });
+    expect(logs[1].params.key).toBe('secret-key');
+    expect(logs[2].body).toBe('bad gateway');
+    expect(logs.at(-1)).toMatchObject({ status: 502, level: 'error', body: { error: 'GLive HTTP 502' } });
+  });
+
+  test('IP visitor diambil dari X-Forwarded-For saat TRUST_PROXY aktif', async () => {
+    const logs = [];
+    const proxied = { ...config, trustProxy: true };
+    const handler = createHandler({ config: proxied, logWriter: (entry) => logs.push(entry), glive: { matches: async () => fixture } });
+    await handler(new Request('http://localhost/api/matches', { headers: { 'X-Forwarded-For': '203.0.113.9' } }), { requestIP: () => ({ address: '10.0.0.5' }) });
+    expect(logs[0].ip.client).toBe('203.0.113.9');
+  });
+
+  test('healthcheck tidak dicatat', async () => {
+    const logs = [];
+    const handler = createHandler({ config, logWriter: (entry) => logs.push(entry), glive: {} });
+    expect((await handler(new Request('http://localhost/healthz'))).status).toBe(200);
+    expect(logs).toEqual([]);
   });
 });
